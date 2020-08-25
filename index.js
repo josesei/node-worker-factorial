@@ -10,26 +10,37 @@ const workerPath = path.resolve('factorial-worker.js');
 
 const calculateFactorialWithWorker = number => {
   // Insert the array preparation code.
-  if (number === 0) {
+  let threadCount = 1;
+  if(number < 0n){
+    return null;
+  }
+  else if (number === 0n) {
     return 1;
   }
-  const numbers = [];
-
-  for (let i = 1n; i <= number; i++) {
-    numbers.push(i);
+  else if (number < userCPUCount){
+    threadCount = number;
+  }
+  else{
+    threadCount = userCPUCount;
   }
 
-  const segmentSize = Math.ceil(numbers.length / userCPUCount);
-  const segments = [];
+  segments = [];
 
-  console.log(numbers.length, userCPUCount, segmentSize);
+  const segmentSize = BigInt(Math.floor(Number(number) / userCPUCount));
 
-  for (let segmentIndex = 0; segmentIndex < userCPUCount; segmentIndex++) {
+
+  console.log(number, threadCount, segmentSize);
+
+  for (let segmentIndex = 0n; segmentIndex < BigInt(userCPUCount); segmentIndex++) {
     const start = segmentIndex * segmentSize;
     const end = start + segmentSize;
-    const segment = numbers.slice(start, end);
-    segments.push(segment);
+    segments.push([BigInt(start), BigInt(end)]);
+
+    if(segmentIndex+1n==BigInt(userCPUCount-1)){
+      segments.push([BigInt(end+1n), BigInt(number)]);
+    }
   }
+  
 
   var promises = segments.map(
     segment =>
@@ -64,6 +75,8 @@ const benchmarkFactorial = async (inputNumber, factFun, label) => {
   const spinner = ora(`Calculating with ${label}..`).start();
   const startTime = process.hrtime();
   const result = await factFun(BigInt(inputNumber));
+
+  
   const diffTime = process.hrtime(startTime);
   const time = diffTime[0] * NS_PER_SEC + diffTime[1];
   spinner.succeed(`${label} result done in: ${time}`);
